@@ -1,0 +1,203 @@
+@page "/todos"
+@inject HttpClient httpClient
+@inject NavigationManager navigation
+@inject ApiService api
+@inject IJSRuntime JS
+@using TodoDashboard.Services
+@using System.Net
+@using System.ComponentModel.DataAnnotations
+@rendermode InteractiveServer
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Todo List</h3>
+    <button class="btn btn-link text-secondary text-decoration-none" @onclick="Logout">Logout</button>
+</div>
+
+<EditForm Model="newTodo" OnValidSubmit="CreateTodo">
+  <DataAnnotationsValidator />
+  <div class="mb-3">
+    <label for="title" class="form-label">New Todo</label>
+    <InputText id="title" class="form-control" @bind-Value="newTodo.Title" />
+  </div>
+  <button type="submit" class="btn btn-primary">Add Todo</button>
+</EditForm>
+
+@if (todos == null)
+{
+  <p>Loading...</p>
+}
+else if (todos.Count == 0)
+{
+  <p>No todos yet.</p>
+}
+else
+{
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Complete</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var todo in todos)
+      {
+        <tr>
+          <td>@todo.Title</td>
+          <td class="@((todo.IsComplete ? "text-success" : "text-danger"))">
+              @(todo.IsComplete ? "Complete" : "Incomplete")
+          </td>
+          <td>
+            <button class="btn btn-warning me-2" @onclick="() => EditTodo(todo)">Edit</button>
+            <button class="btn btn-danger" @onclick="() => PromptDelete(todo.Id)">Delete</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- Edit Todo Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Todo</h5>
+      </div>
+      <div class="modal-body">
+        <EditForm Model="newTodo" OnValidSubmit="CreateTodo">
+          <DataAnnotationsValidator />
+          <div class="mb-3">
+            <label for="editTitle" class="form-label">Title</label>
+            <InputText id="editTitle" class="form-control" @bind-Value="newTodo.Title" />
+          </div>
+          <div class="form-check mb-3">
+            <InputCheckbox id="editComplete" class="form-check-input" @bind-Value="newTodo.IsComplete" />
+            <label class="form-check-label" for="editComplete">Completed</label>
+          </div>
+          <button type="submit" class="btn btn-primary me-2">Save changes</button>
+          <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+        </EditForm>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Delete</h5>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete this todo?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code {
+  private List<TodoItem>? todos;
+  private TodoItem newTodo = new TodoItem();
+  private int? todoIdToDelete;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+      if (firstRender)
+      {
+          var token = await JS.InvokeAsync<string>("localStorage.getItem", "userToken");
+          if (string.IsNullOrEmpty(token))
+          {
+              navigation.NavigateTo("/login");
+              return;
+          }
+
+          todos = await api.GetAsync<List<TodoItem>>("http://api:8080/todo");
+          StateHasChanged();
+      }
+  }
+
+  private async Task CreateTodo()
+  {
+      if (newTodo.Id == 0)
+      {
+          await api.PostAsync("http://api:8080/todo", newTodo);
+      }
+      else
+      {
+          await api.PutAsync($"http://api:8080/todo/{newTodo.Id}", newTodo);
+      }
+
+      todos = await api.GetAsync<List<TodoItem>>("http://api:8080/todo");
+      newTodo = new TodoItem(); // clear input
+      await JS.InvokeVoidAsync("closeModal");
+  }
+
+  private async void EditTodo(TodoItem todo)
+  {
+      newTodo = new TodoItem
+      {
+          Id = todo.Id,
+          Title = todo.Title,
+          IsComplete = todo.IsComplete
+      };
+
+      await JS.InvokeVoidAsync("showModal");
+  }
+
+  private async Task CancelEdit()
+  {
+      newTodo = new TodoItem();
+      await JS.InvokeVoidAsync("closeModal");
+  }
+
+  private async Task ConfirmDelete()
+  {
+      if (todoIdToDelete != null)
+      {
+          await api.DeleteAsync($"http://api:8080/todo/{todoIdToDelete}");
+          todos = await api.GetAsync<List<TodoItem>>("http://api:8080/todo");
+          todoIdToDelete = null;
+      }
+      await JS.InvokeVoidAsync("closeDeleteModal");
+  }
+
+  private async Task CancelDelete()
+  {
+      todoIdToDelete = null;
+      await JS.InvokeVoidAsync("closeDeleteModal");
+  }
+
+  private async Task PromptDelete(int id)
+  {
+      todoIdToDelete = id;
+      await JS.InvokeVoidAsync("showDeleteModal");
+  }
+
+  private async Task DeleteTodo(int id)
+  {
+    await api.DeleteAsync($"http://api:8080/todo/{id}");
+    todos = await api.GetAsync<List<TodoItem>>("http://api:8080/todo");
+  }
+
+  private async Task Logout()
+  {
+      await JS.InvokeVoidAsync("localStorage.removeItem", "userToken");
+      navigation.NavigateTo("/login", forceLoad: true);
+  }
+
+
+  public class TodoItem
+  {
+    public int Id { get; set; }
+    [Required(ErrorMessage = "Title is required")]
+    public string? Title { get; set; }
+    public bool IsComplete { get; set; }
+  }
+}

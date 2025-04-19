@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# VS Code settings
+.vscode/
+
+# macOS system files
+.DS_Store
+
+# User secrets / sensitive files
+appsettings.*.json
+.env
+
+# Logs
+*.log
+
+# Others
+*.db

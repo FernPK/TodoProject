@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres
+    container_name: my-postgres-2
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: todo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./TodoApi
+    container_name: my-todo-api-2
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      - db
+
+  dashboard:
+    build:
+      context: ./TodoDashboard
+    container_name: my-dashboard-2
+    ports:
+      - "5005:8080"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

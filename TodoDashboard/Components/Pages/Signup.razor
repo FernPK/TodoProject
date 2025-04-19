@@ -1,0 +1,79 @@
+@page "/signup"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager navigation
+@inject IJSRuntime JS
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Json
+@using System.Net
+
+<h3>Signup</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<EditForm Model="signupModel" OnValidSubmit="HandleSignup" FormName="SignupForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <InputText id="username" class="form-control" @bind-Value="signupModel.Username" />
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <InputText id="password" class="form-control" @bind-Value="signupModel.Password" type="password" />
+    </div>
+    <div class="mb-3">
+        <label for="confirmPassword" class="form-label">Confirm Password</label>
+        <InputText id="confirmPassword" class="form-control" @bind-Value="signupModel.ConfirmPassword" type="password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Signup</button>
+</EditForm>
+
+@code {
+    private SignupRequest signupModel { get; set; } = new SignupRequest();
+    private string? errorMessage;
+
+    private async Task HandleSignup()
+    {
+        if (signupModel.Password != signupModel.ConfirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://api:8080/register")
+            {
+                Content = JsonContent.Create(new { signupModel.Username, signupModel.Password })
+            };
+            var client = HttpClientFactory.CreateClient("AuthorizedClient");
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, CancellationToken.None);
+
+            response.EnsureSuccessStatusCode();
+
+            navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    public class SignupRequest
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+
+        [Required]
+        [Compare("Password", ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

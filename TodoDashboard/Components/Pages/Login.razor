@@ -1,0 +1,93 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager navigation
+@inject IJSRuntime JS
+@using TodoDashboard.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+@using System.Text.Json
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Json
+@using System.Net
+
+<h3>Login</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <InputText id="username" class="form-control" @bind-Value="loginModel.Username" />
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <InputText id="password" class="form-control" @bind-Value="loginModel.Password" type="password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+    <div class="mt-3">
+        Don't have an account? <a href="/signup">Sign up here</a>.
+    </div>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginRequest loginModel { get; set; } = new LoginRequest();
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://api:8080/login")
+            {
+                Content = JsonContent.Create(loginModel)
+            };
+            var client = HttpClientFactory.CreateClient("AuthorizedClient");
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, CancellationToken.None);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                errorMessage = "Invalid username or password.";
+                return;
+            }
+
+            response.EnsureSuccessStatusCode(); // will throw if not 2xx
+
+            var json = await response.Content.ReadAsStringAsync();
+            var jsonDoc = JsonDocument.Parse(json);
+            if (jsonDoc.RootElement.TryGetProperty("token", out var tokenElement))
+            {
+                var token = tokenElement.GetString();
+
+                await JS.InvokeVoidAsync("localStorage.setItem", "userToken", token);
+
+                navigation.NavigateTo("/todos");
+                return;
+            }
+            else
+            {
+                errorMessage = "Login response did not contain a token.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    public class LoginRequest
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}

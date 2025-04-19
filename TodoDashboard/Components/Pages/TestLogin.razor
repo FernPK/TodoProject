@@ -1,0 +1,14 @@
+@page "/testlogin"
+@inject NavigationManager navigation
+@rendermode InteractiveServer
+
+<h3>Test Login Page</h3>
+
+<button class="btn btn-primary" @onclick="Go">Go to Todos</button>
+
+@code {
+    private void Go()
+    {
+        navigation.NavigateTo("/weather", forceLoad: true);
+    }
+}

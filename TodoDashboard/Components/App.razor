@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="TodoDashboard.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      window.showModal = () => {
+        const modalElement = document.getElementById('editModal');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      };
+
+      window.closeModal = () => {
+        const modalElement = document.getElementById('editModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+          modal.hide();
+        }
+      };
+      
+      window.showDeleteModal = () => {
+        const modalElement = document.getElementById('deleteConfirmModal');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      };
+
+      window.closeDeleteModal = () => {
+        const modalElement = document.getElementById('deleteConfirmModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+          modal.hide();
+        }
+      };
+    </script>
+</body>
+
+</html>
