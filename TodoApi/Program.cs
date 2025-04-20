@@ -233,4 +233,9 @@ app.MapPost("/login", async (HttpContext context, LoginRequest request, TodoDbCo
     return Results.Ok(new { token = jwt });
 });
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+    db.Database.Migrate();
+}
 app.Run();
